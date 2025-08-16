@@ -1,0 +1,13 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.juggernaut.inventory
+productName: JuggernautInventory
+mac:
+  category: public.app-category.productivity
+  icon: assets/icon.icns
+  target: default
+win:
+  icon: assets/icon.ico
+files: []
+electronVersion: 31.7.7

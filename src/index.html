@@ -1,0 +1,68 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Juggernaut Inventory Management System – Desktop Demo</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    :root { --pico-font-size: 16px; }
+    header { margin: 8px 0 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+    table { font-size: 14px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+    .bad { color: #b91c1c; font-weight: 600; }
+    .muted { color: #6b7280; }
+    .flex { display:flex; gap:12px; align-items:center; }
+    .chips span { border:1px solid #e5e7eb; padding:4px 8px; border-radius:999px; font-size:12px; }
+    #chartWrap { position: relative; }
+    #chart1 { width:100% !important; height:100% !important; display:block; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="flex">
+      <h3><img src="./assets/juggernaut-symbol.png" alt="Juggernaut Logo" style="height:42px; vertical-align:middle; margin-right:8px;">
+        Inventory Management System – Desktop Demo</h3>
+      <div class="chips">
+        <span id="chipLocations">—</span>
+        <span id="chipItems">—</span>
+        <span>Categories & subcategories</span>
+        <span>Analytics</span>
+      </div>
+    </header>
+    <section class="grid">
+      <div class="card">
+        <h4>Filters</h4>
+        <label>Location
+          <select id="location"></select>
+        </label>
+        <button id="refresh">Refresh</button>
+        <p class="muted">Tip: choose a location to filter inventory.</p>
+        <h5>Analytics</h5>
+        <div id="chartWrap" style="height:180px"><canvas id="chart1"></canvas></div>
+        <h6>Top 10 Items by Value</h6>
+        <ul id="topItems"></ul>
+        <h6>Low Stock (&lt;10)</h6>
+        <ul id="lowStock"></ul>
+      </div>
+      <div class="card">
+        <h4>Inventory <button id="exportCsv" class="secondary" style="float:right;">Export CSV</button> </h4>
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th><th>Item</th><th>Category</th><th>Location</th><th>Qty</th><th>CPU</th><th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="./renderer.js"></script>
+</body>
+</html>

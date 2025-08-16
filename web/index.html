@@ -1,0 +1,47 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Mining Inventory (Web Demo)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h3>Mining Inventory — Web Demo</h3>
+
+    <div class="chips">
+      <span id="chipLocations" class="chip">0 locations</span>
+      <span id="chipItems" class="chip">0 items</span>
+    </div>
+
+    <div class="card">
+      <h4>Inventory</h4>
+      <select id="location"></select>
+      <table id="tbl">
+        <thead><tr><th>SKU</th><th>Name</th><th>Location</th><th>Qty</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h4>Analytics</h4>
+      <div style="height:280px"><canvas id="chart1"></canvas></div>
+      <div class="grid">
+        <div>
+          <h5>Top Items</h5>
+          <ul id="topItems"></ul>
+        </div>
+        <div>
+          <h5>Low Stock</h5>
+          <ul id="lowStock"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
