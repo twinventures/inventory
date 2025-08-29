@@ -1,47 +1,70 @@
-
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Mining Inventory (Web Demo)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="../styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventory Management System — Web Demo</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <link rel="icon" href="./favicon.ico">
+  <style>
+    :root { --pico-font-size: 16px; }
+    header { margin: 8px 0 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+    table { font-size: 14px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+    .bad { color: #b91c1c; font-weight: 600; }
+    .muted { color: #6b7280; }
+    .flex { display:flex; gap:12px; align-items:center; }
+    .chips span { border:1px solid #e5e7eb; padding:4px 8px; border-radius:999px; font-size:12px; }
+    #chartWrap { position:relative; height:180px }
+    #chart1 { width:100% !important; height:100% !important; display:block; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h3>Mining Inventory — Web Demo</h3>
-
-    <div class="chips">
-      <span id="chipLocations" class="chip">0 locations</span>
-      <span id="chipItems" class="chip">0 items</span>
-    </div>
-
-    <div class="card">
-      <h4>Inventory</h4>
-      <select id="location"></select>
-      <table id="tbl">
-        <thead><tr><th>SKU</th><th>Name</th><th>Location</th><th>Qty</th></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <h4>Analytics</h4>
-      <div style="height:280px"><canvas id="chart1"></canvas></div>
-      <div class="grid">
-        <div>
-          <h5>Top Items</h5>
-          <ul id="topItems"></ul>
-        </div>
-        <div>
-          <h5>Low Stock</h5>
-          <ul id="lowStock"></ul>
-        </div>
+  <main class="container">
+    <header class="flex">
+      <h3><img src="src/assets/icon.iconset/icon_32x32@2x.png">Inventory Management System — Web Demo</h3>
+      <div class="chips">
+        <span id="chipLocations">—</span>
+        <span id="chipItems">—</span>
+        <span>Categories & subcategories</span>
+        <span>Analytics</span>
       </div>
-    </div>
-  </div>
+    </header>
 
+    <section class="grid">
+      <div class="card">
+        <h4>Filters</h4>
+        <label>Location
+          <select id="location"></select>
+        </label>
+        <button id="refresh">Refresh</button>
+        <p class="muted">Tip: choose a location to filter inventory.</p>
+
+        <h5>Analytics</h5>
+        <div id="chartWrap"><canvas id="chart1"></canvas></div>
+
+        <h6>Top 10 Items by Value</h6>
+        <ul id="topItems"></ul>
+        <h6>Low Stock (&lt;10)</h6>
+        <ul id="lowStock"></ul>
+      </div>
+
+      <div class="card">
+        <h4>Inventory</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th><th>Item</th><th>Category</th><th>Location</th><th>Qty</th><th>CPU</th><th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="./app.js"></script>
+  <script src="./web.js"></script>
 </body>
 </html>

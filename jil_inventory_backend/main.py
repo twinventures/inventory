@@ -1,8 +1,9 @@
 import os
-import sqlite3
 from datetime import datetime
 from typing import Optional
+from sqlalchemy import text
 
+from sqlite3 import Connection, Row
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -13,9 +14,12 @@ from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev")
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-app = FastAPI(title="JIL Inventory API")
+engine_args = {"pool_pre_ping": True}
+if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
+    engine_args["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_args)
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,20 +132,33 @@ def get_items():
         return s.exec(select(Item).order_by(Item.sku)).all()
 
 @app.get("/inventory")
-def get_inventory(location_id: int):
-    conn = sqlite3.connect("inventory.db")
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+def inventory(locationId: Optional[int] = None):
+    sql = """
+      SELECT inv.id,
+             it.sku,
+             it.name AS item,
+             c.name  AS category,
+             l.name  AS location,
+             inv.qty,
+             inv.cost_per_unit,
+             (inv.qty * inv.cost_per_unit) AS value
+      FROM inventory inv
+      JOIN item it      ON it.id = inv.item_id
+      LEFT JOIN category c ON c.id = it.category_id
+      JOIN location l   ON l.id = inv.location_id
+      WHERE (:locationId IS NULL OR l.id = :locationId)
+      ORDER BY it.sku
+      LIMIT 500
+    """
+    with Session(engine) as s:
+        rows = s.exec(text(sql), {"locationId": locationId}).mappings().all()
+        return [dict(r) for r in rows]
 
-    cursor.execute(
-        "SELECT * FROM inventory WHERE location_id = ?",
-        (location_id,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [dict(r) for r in rows]
-
+@app.get("/filters")
+def filters():
+    with Session(engine) as s:
+        rows = s.exec(text("SELECT id, name FROM location ORDER BY name")).mappings().all()
+        return {"locations": [dict(r) for r in rows]}
 
 
 @app.post("/movements")
@@ -206,3 +223,10 @@ def summary():
         return {"totals":[dict(x) for x in totals],
                 "low":[dict(x) for x in low],
                 "top":[dict(x) for x in top]}
+    
+ 
+@app.get("/item_count")
+def item_count():
+    with Session(engine) as s:
+        row = s.exec(text("SELECT COUNT(*) AS count FROM item")).mappings().one()
+        return {"count": row["count"]}

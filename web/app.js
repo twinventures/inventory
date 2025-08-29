@@ -1,5 +1,5 @@
 // === CONFIG: point this at your cloud API later ===
-const API_BASE = (window.API_BASE_OVERRIDE) || "http://localhost:8000";
+const API_BASE = (window.API_BASE_OVERRIDE) || "https://inventory-t49h.onrender.com";
 
 // Helpers
 const $ = (sel) => document.querySelector(sel);
