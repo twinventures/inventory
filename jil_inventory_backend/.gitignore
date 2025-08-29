@@ -1,3 +1,34 @@
 venv
 __pycache__
 .env
+
+.DS_Store
+.AppleDouble
+._*
+
+# Node / Electron
+node_modules/
+dist/
+out/
+build/
+release/
+*.asar
+npm-debug.log*
+yarn-error.log*
+
+# Python backend
+jil_inventory_backend/.venv/
+jil_inventory_backend/__pycache__/
+jil_inventory_backend/**/*.pyc
+jil_inventory_backend/**/*.pyo
+jil_inventory_backend/**/*.pyd
+
+# Local DB files (seed/runtime)
+inventory.sqlite
+jil_inventory_backend/inventory.sqlite
+
+# Env / secrets
+.env
+*.env
+jil_inventory_backend/.env
+EOF
