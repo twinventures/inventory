@@ -26,10 +26,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten later
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=True,
 )
 
 # --------- MODELS ----------
@@ -91,10 +91,36 @@ def init_db():
         if not s.exec(select(Item).limit(1)).first():
             s.add_all([
                 Item(sku="JIL-0001", name="Safety Helmet", category_id=4, unit="ea"),
-                Item(sku="JIL-0002", name="Rock Drill", category_id=3, unit="ea"),
-                Item(sku="JIL-0003", name="Diesel 50L", unit="L"),
+                Item(sku="JIL-0002", name="Rock Drill",   category_id=3, unit="ea"),
+                Item(sku="JIL-0003", name="Diesel 50L",   unit="L"),
             ])
-        s.commit()
+            s.commit()
+
+        # seed inventory only if none exists (for Render Postgres)
+        if not s.exec(select(Inventory).limit(1)).first():
+            # look up by stable keys so IDs don’t matter
+            helmet = s.exec(select(Item).where(Item.sku == "JIL-0001")).first()
+            drill  = s.exec(select(Item).where(Item.sku == "JIL-0002")).first()
+            diesel = s.exec(select(Item).where(Item.sku == "JIL-0003")).first()
+
+            katampe = s.exec(select(Location).where(Location.name == "Katampe")).first()
+            niger   = s.exec(select(Location).where(Location.name == "Niger")).first()
+            ekiti   = s.exec(select(Location).where(Location.name == "Ekiti")).first()
+
+            seed_rows = []
+            if helmet and katampe:
+                seed_rows.append(Inventory(item_id=helmet.id, location_id=katampe.id, qty=50, cost_per_unit=12000))
+            if drill and katampe:
+                seed_rows.append(Inventory(item_id=drill.id,  location_id=katampe.id, qty=5,  cost_per_unit=250000))
+            if diesel and niger:
+                seed_rows.append(Inventory(item_id=diesel.id, location_id=niger.id,   qty=200, cost_per_unit=800))
+            if diesel and ekiti:
+                seed_rows.append(Inventory(item_id=diesel.id, location_id=ekiti.id,   qty=150, cost_per_unit=800))
+
+            if seed_rows:
+                s.add_all(seed_rows)
+                s.commit()
+
 
 @app.on_event("startup")
 def on_startup():
