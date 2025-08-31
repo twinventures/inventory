@@ -7,12 +7,13 @@ from sqlite3 import Connection, Row
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import SQLModel, Field, Session, select, create_engine, text
+from sqlmodel import SQLModel, Field, Session, select, create_engine
 from passlib.hash import bcrypt
 from dotenv import load_dotenv
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_PATH = os.getenv("DB_PATH", "/var/tmp/inventory.sqlite")
+DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{DB_PATH}"
 SECRET_KEY = os.getenv("SECRET_KEY", "dev")
 
 engine_args = {"pool_pre_ping": True}
@@ -184,6 +185,50 @@ def move_item(m: Movement):
         s.commit()
         return {"ok": True}
 
+@app.get("/summary")
+def summary():
+    with Session(engine) as s:
+        totals = s.exec(
+            text("""
+                SELECT l.name as location, SUM(inv.qty) as total_qty,
+                       ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as total_value
+                FROM inventory inv 
+                JOIN location l ON l.id = inv.location_id
+                GROUP BY l.name 
+                ORDER BY l.name
+            """)
+        ).mappings().all()
+
+        low = s.exec(
+            text("""
+                SELECT it.sku, it.name, l.name as location, inv.qty
+                FROM inventory inv 
+                JOIN item it ON it.id = inv.item_id 
+                JOIN location l ON l.id = inv.location_id
+                WHERE inv.qty < 10 
+                ORDER BY inv.qty ASC 
+                LIMIT 25
+            """)
+        ).mappings().all()
+
+        top = s.exec(
+            text("""
+                SELECT it.sku, it.name, ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as value
+                FROM inventory inv 
+                JOIN item it ON it.id = inv.item_id
+                GROUP BY it.sku, it.name 
+                ORDER BY value DESC 
+                LIMIT 10
+            """)
+        ).mappings().all()
+
+        return {
+            "totalsByLocation": [dict(x) for x in totals],
+            "lowStock": [dict(x) for x in low],
+            "topItems": [dict(x) for x in top]
+        }
+
+
 @app.get("/reports/summary")
 def summary():
     with Session(engine) as s:
@@ -191,7 +236,7 @@ def summary():
             totals = s.exec(
                 text("""
                     SELECT l.name as location, SUM(inv.qty) as total_qty,
-                        ROUND(SUM(inv.qty*inv.cost_per_unit),2) as total_value
+                        ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as total_value
                     FROM inventory inv 
                     JOIN location l ON l.id = inv.location_id
                     GROUP BY l.name 
@@ -213,7 +258,7 @@ def summary():
 
         top = s.exec(
             text("""
-                SELECT it.sku, it.name, ROUND(SUM(inv.qty*inv.cost_per_unit),2) as value
+                SELECT it.sku, it.name, ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as value
                 FROM inventory inv 
                 JOIN item it ON it.id = inv.item_id
                 GROUP BY it.sku, it.name 
