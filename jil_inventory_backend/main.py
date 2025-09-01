@@ -120,28 +120,32 @@ def get_items():
 
 @app.get("/inventory")
 def inventory(locationId: Optional[int] = None):
-    base_sql = """
-      SELECT inv.id,
-             it.sku,
-             it.name AS item,
-             c.name  AS category,
-             l.name  AS location,
-             inv.qty,
-             COALESCE(inv.cost_per_unit::numeric, 0) AS cost_per_unit,
-             (inv.qty * COALESCE(inv.cost_per_unit::numeric, 0)) AS value
+    sql = """
+      SELECT 
+        inv.id,
+        it.sku,
+        it.name AS item,
+        COALESCE(c.name, '') AS category,
+        l.name AS location,
+        inv.qty::integer AS qty,
+        COALESCE(inv.cost_per_unit, 0)::numeric AS cost_per_unit,
+        (inv.qty::numeric * COALESCE(inv.cost_per_unit, 0)::numeric) AS value
       FROM inventory inv
-      JOIN item it      ON it.id = inv.item_id
+      JOIN item      it ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
-      JOIN location l   ON l.id = inv.location_id
+      JOIN location  l ON l.id = inv.location_id
+      {where}
+      ORDER BY it.sku
+      LIMIT 500
     """
-    args = {}
+    where = ""
+    params = {}
     if locationId is not None:
-        base_sql += " WHERE l.id = :locationId"
-        args["locationId"] = int(locationId)
-    base_sql += " ORDER BY it.sku LIMIT 500"
+        where = "WHERE l.id = :locationId"
+        params["locationId"] = int(locationId)
 
     with Session(engine) as s:
-        rows = s.exec(text(base_sql), args).mappings().all()
+        rows = s.exec(text(sql.format(where=where)), params).mappings().all()
         return [dict(r) for r in rows]
 
 
