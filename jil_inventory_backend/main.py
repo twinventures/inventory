@@ -178,7 +178,7 @@ def summary():
     with Session(engine) as s:
         totals = s.exec(text("""
             SELECT l.name as location, SUM(inv.qty) as total_qty,
-                   ROUND(SUM(inv.qty*inv.cost_per_unit),2) as total_value
+                   ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as total_value
             FROM inventory inv 
             JOIN location l ON l.id = inv.location_id
             GROUP BY l.name ORDER BY l.name
