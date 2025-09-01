@@ -26,10 +26,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://inventory-web-demo.onrender.com"],
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
 )
 
 
@@ -122,14 +122,15 @@ def get_items():
 @app.get("/inventory")
 def inventory(locationId: Optional[int] = None):
     sql = """
-      SELECT inv.id,
-             it.sku,
-             it.name AS item,
-             c.name  AS category,
-             l.name  AS location,
-             inv.qty,
-             COALESCE(inv.cost_per_unit, 0) AS cost_per_unit,
-             (inv.qty * COALESCE(inv.cost_per_unit, 0)) AS value
+      SELECT
+        inv.id,
+        it.sku,
+        it.name AS item,
+        COALESCE(c.name, '') AS category,
+        l.name  AS location,
+        COALESCE(inv.qty, 0) AS qty,
+        COALESCE(inv.cost_per_unit, 0) AS cost_per_unit,
+        (COALESCE(inv.qty,0) * COALESCE(inv.cost_per_unit,0)) AS value
       FROM inventory inv
       JOIN item it        ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
@@ -138,11 +139,16 @@ def inventory(locationId: Optional[int] = None):
       ORDER BY it.sku
       LIMIT 500
     """
-    where = "WHERE l.id = :locationId" if locationId is not None else ""
-    params = {"locationId": int(locationId)} if locationId is not None else {}
+    params = {}
+    where = ""
+    if locationId is not None:
+        where = "WHERE l.id = :locationId"
+        params["locationId"] = int(locationId)
+
     with Session(engine) as s:
         rows = s.exec(text(sql.format(where=where)), params).mappings().all()
         return [dict(r) for r in rows]
+
 
 
 
