@@ -242,7 +242,7 @@ def reports_summary():
             GROUP BY it.sku, it.name
             ORDER BY value DESC
             LIMIT 10
-        """)).mappings().all()
+        """)).mappings().all() 
 
         return {"totals": [dict(x) for x in totals],
                 "low":    [dict(x) for x in low],
