@@ -4,6 +4,8 @@ const API_BASE = localStorage.getItem('API_BASE') || 'https://inventory-t49h.onr
 const fmtCurrency = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 const fmtInt = new Intl.NumberFormat('en-NG', { maximumFractionDigits: 0 });
 let chart = null;
+let lastRows = [];
+
 
 function $(sel){ return document.querySelector(sel); }
 
@@ -82,6 +84,37 @@ function renderLocationsSelect(locs){
     (locs||[]).map(l => `<option value="${l.id}">${l.name}</option>`).join('');
 }
 
+
+function exportCsv() {
+  const headers = ['SKU','Item','Category','Location','Qty','CostPerUnit','Value'];
+  const lines = [headers.join(',')];
+
+  for (const r of lastRows) {
+    const out = [
+      r.sku ?? '',
+      (r.item ?? r.name ?? ''),
+      (r.category ?? r.cat ?? ''),
+      (r.location ?? ''),
+      (toNum(r.qty)),
+      (r.cost_per_unit ?? r.cpu ?? r.unit_cost ?? 0),
+      (r.value ?? (toNum(r.cost_per_unit ?? r.cpu ?? r.unit_cost ?? 0) * toNum(r.qty)))
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+    lines.push(out);
+  }
+  const csv = '\uFEFF' + lines.join('\n'); // BOM for Excel
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'inventory-export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
 // -------- FLOW --------
 async function loadFilters(){
   // use /locations (not /filters)
@@ -111,7 +144,8 @@ async function refresh(){
            || await safeFetchJSON('/reports/summary')
            || { totalsByLocation: [], lowStock: [], topItems: [] };
 
-  renderRows(rows);
+  lastRows = rows || [];
+  renderRows(lastRows);
   renderAnalytics(summary);
   $('#refresh')?.removeAttribute('aria-busy');
 }
@@ -119,6 +153,8 @@ async function refresh(){
 
 $('#refresh').addEventListener('click', refresh);
 $('#location').addEventListener('change', refresh);
+$('#exportCsv').addEventListener('click', exportCsv);
+
 
 // Dev helper to switch API at runtime:
 // localStorage.setItem('API_BASE','https://inventory-xxxxx.onrender.com'); location.reload();
