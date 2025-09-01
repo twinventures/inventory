@@ -127,8 +127,8 @@ def inventory(locationId: Optional[int] = None):
              c.name  AS category,
              l.name  AS location,
              inv.qty,
-             inv.cost_per_unit,
-             (inv.qty * inv.cost_per_unit) AS value
+             COALESCE(inv.cost_per_unit::numeric, 0) AS cost_per_unit,
+             (inv.qty * COALESCE(inv.cost_per_unit::numeric, 0)) AS value
       FROM inventory inv
       JOIN item it      ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
@@ -178,7 +178,7 @@ def summary():
     with Session(engine) as s:
         totals = s.exec(text("""
             SELECT l.name as location, SUM(inv.qty) as total_qty,
-                   ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as total_value
+                ROUND(SUM(inv.qty * COALESCE(inv.cost_per_unit::numeric, 0))::numeric, 2) as total_value
             FROM inventory inv 
             JOIN location l ON l.id = inv.location_id
             GROUP BY l.name ORDER BY l.name
@@ -193,11 +193,15 @@ def summary():
         """)).mappings().all()
 
         top = s.exec(text("""
-            SELECT it.sku, it.name, ROUND(SUM(inv.qty*inv.cost_per_unit),2) as value
-            FROM inventory inv 
+            SELECT it.sku, it.name,
+                   ROUND(SUM(inv.qty * COALESCE(inv.cost_per_unit::numeric, 0))::numeric, 2) AS value
+            FROM inventory inv
             JOIN item it ON it.id = inv.item_id
-            GROUP BY it.sku, it.name ORDER BY value DESC LIMIT 10
+            GROUP BY it.sku, it.name
+            ORDER BY value DESC
+            LIMIT 10
         """)).mappings().all()
+
 
         return {
             "totalsByLocation": [dict(x) for x in totals],
@@ -207,46 +211,42 @@ def summary():
 
 
 @app.get("/reports/summary")
-def summary():
+def reports_summary():
     with Session(engine) as s:
-        with Session(engine) as s:
-            totals = s.exec(
-                text("""
-                    SELECT l.name as location, SUM(inv.qty) as total_qty,
-                        ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as total_value
-                    FROM inventory inv 
-                    JOIN location l ON l.id = inv.location_id
-                    GROUP BY l.name 
-                    ORDER BY l.name
-                """)
-            ).mappings().all()
+        totals = s.exec(text("""
+            SELECT l.name AS location,
+                   SUM(inv.qty) AS total_qty,
+                   ROUND(SUM(inv.qty * COALESCE(inv.cost_per_unit::numeric, 0))::numeric, 2) AS total_value
+            FROM inventory inv
+            JOIN location l ON l.id = inv.location_id
+            GROUP BY l.name
+            ORDER BY l.name
+        """)).mappings().all()
 
-        low = s.exec(
-            text("""
-                SELECT it.sku, it.name, l.name as location, inv.qty
-                FROM inventory inv 
-                JOIN item it ON it.id = inv.item_id 
-                JOIN location l ON l.id = inv.location_id
-                WHERE inv.qty < 10 
-                ORDER BY inv.qty ASC 
-                LIMIT 25
-            """)
-        ).mappings().all()
+        low = s.exec(text("""
+            SELECT it.sku, it.name, l.name AS location, inv.qty
+            FROM inventory inv
+            JOIN item it ON it.id = inv.item_id
+            JOIN location l ON l.id = inv.location_id
+            WHERE inv.qty < 10
+            ORDER BY inv.qty ASC
+            LIMIT 25
+        """)).mappings().all()
 
-        top = s.exec(
-            text("""
-                SELECT it.sku, it.name, ROUND(SUM(inv.qty*inv.cost_per_unit)::numeric, 2) as value
-                FROM inventory inv 
-                JOIN item it ON it.id = inv.item_id
-                GROUP BY it.sku, it.name 
-                ORDER BY value DESC 
-                LIMIT 10
-            """)
-        ).mappings().all()
+        top = s.exec(text("""
+            SELECT it.sku, it.name,
+                   ROUND(SUM(inv.qty * COALESCE(inv.cost_per_unit::numeric, 0))::numeric, 2) AS value
+            FROM inventory inv
+            JOIN item it ON it.id = inv.item_id
+            GROUP BY it.sku, it.name
+            ORDER BY value DESC
+            LIMIT 10
+        """)).mappings().all()
 
-        return {"totals":[dict(x) for x in totals],
-                "low":[dict(x) for x in low],
-                "top":[dict(x) for x in top]}
+        return {"totals": [dict(x) for x in totals],
+                "low":    [dict(x) for x in low],
+                "top":    [dict(x) for x in top]}
+
     
  
 @app.get("/item_count")
