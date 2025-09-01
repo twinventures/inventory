@@ -26,11 +26,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://inventory-web-demo.onrender.com"],
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=False,
-    )
+)
+
 
 # --------- MODELS ----------
 class User(SQLModel, table=True):
@@ -121,31 +122,32 @@ def get_items():
 @app.get("/inventory")
 def inventory(locationId: Optional[int] = None):
     sql = """
-      SELECT 
+      SELECT
         inv.id,
         it.sku,
         it.name AS item,
-        COALESCE(c.name, '') AS category,
-        l.name AS location,
-        inv.qty::integer AS qty,
-        COALESCE(inv.cost_per_unit, 0)::numeric AS cost_per_unit,
-        (inv.qty::numeric * COALESCE(inv.cost_per_unit, 0)::numeric) AS value
+        COALESCE(c.name,'')       AS category,
+        l.name                    AS location,
+        COALESCE(inv.qty,0)       AS qty,
+        COALESCE(inv.cost_per_unit,0)         AS cost_per_unit,
+        (COALESCE(inv.qty,0) * COALESCE(inv.cost_per_unit,0)) AS value
       FROM inventory inv
-      JOIN item      it ON it.id = inv.item_id
+      JOIN item it       ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
-      JOIN location  l ON l.id = inv.location_id
-      {where}
+      JOIN location l    ON l.id = inv.location_id
+      /**where**/
       ORDER BY it.sku
       LIMIT 500
     """
-    where = ""
-    params = {}
+    args = {}
     if locationId is not None:
-        where = "WHERE l.id = :locationId"
-        params["locationId"] = int(locationId)
+        sql = sql.replace("/**where**/", "WHERE l.id = :locationId")
+        args["locationId"] = int(locationId)
+    else:
+        sql = sql.replace("/**where**/", "")
 
     with Session(engine) as s:
-        rows = s.exec(text(sql.format(where=where)), params).mappings().all()
+        rows = s.exec(text(sql), args).mappings().all()
         return [dict(r) for r in rows]
 
 
