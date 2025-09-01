@@ -122,27 +122,28 @@ def get_items():
 @app.get("/inventory")
 def inventory(locationId: Optional[int] = None):
     sql = """
-      SELECT
-        inv.id,
-        it.sku,
-        it.name AS item,
-        COALESCE(c.name,'')                        AS category,
-        l.name                                     AS location,
-        COALESCE(inv.qty,0)::int                   AS qty,
-        COALESCE(inv.cost_per_unit,0)::double precision AS cost_per_unit,
-        (COALESCE(inv.qty,0)::numeric * COALESCE(inv.cost_per_unit,0)::numeric) AS value
+      SELECT inv.id,
+             it.sku,
+             it.name AS item,
+             c.name  AS category,
+             l.name  AS location,
+             inv.qty,
+             COALESCE(inv.cost_per_unit, 0) AS cost_per_unit,
+             (inv.qty * COALESCE(inv.cost_per_unit, 0)) AS value
       FROM inventory inv
-      JOIN item it         ON it.id = inv.item_id
+      JOIN item it        ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
-      JOIN location l      ON l.id = inv.location_id
-      WHERE (:locationId IS NULL OR l.id = :locationId)
+      JOIN location l     ON l.id = inv.location_id
+      {where}
       ORDER BY it.sku
       LIMIT 500
     """
-    args = {"locationId": int(locationId) if locationId is not None else None}
+    where = "WHERE l.id = :locationId" if locationId is not None else ""
+    params = {"locationId": int(locationId)} if locationId is not None else {}
     with Session(engine) as s:
-        rows = s.exec(text(sql), args).mappings().all()
+        rows = s.exec(text(sql.format(where=where)), params).mappings().all()
         return [dict(r) for r in rows]
+
 
 
 
@@ -242,7 +243,7 @@ def reports_summary():
             GROUP BY it.sku, it.name
             ORDER BY value DESC
             LIMIT 10
-        """)).mappings().all() 
+        """)).mappings().all()  
 
         return {"totals": [dict(x) for x in totals],
                 "low":    [dict(x) for x in low],
