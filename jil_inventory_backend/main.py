@@ -27,7 +27,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=False,
 )
@@ -119,35 +119,38 @@ def get_items():
     with Session(engine) as s:
         return s.exec(select(Item).order_by(Item.sku)).all()
 
+from sqlalchemy import text
+
 @app.get("/inventory")
 def inventory(locationId: Optional[int] = None):
-    sql = """
-      SELECT
-        inv.id,
-        it.sku,
-        it.name AS item,
-        COALESCE(c.name, '') AS category,
-        l.name  AS location,
-        COALESCE(inv.qty, 0) AS qty,
-        COALESCE(inv.cost_per_unit, 0) AS cost_per_unit,
-        (COALESCE(inv.qty,0) * COALESCE(inv.cost_per_unit,0)) AS value
+    base_sql = """
+      SELECT inv.id,
+             it.sku,
+             it.name AS item,
+             COALESCE(c.name, '') AS category,
+             l.name  AS location,
+             inv.qty,
+             COALESCE(inv.cost_per_unit, 0) AS cost_per_unit,
+             (inv.qty * COALESCE(inv.cost_per_unit, 0)) AS value
       FROM inventory inv
       JOIN item it        ON it.id = inv.item_id
       LEFT JOIN category c ON c.id = it.category_id
       JOIN location l     ON l.id = inv.location_id
-      {where}
+      {where_clause}
       ORDER BY it.sku
       LIMIT 500
     """
-    params = {}
-    where = ""
-    if locationId is not None:
-        where = "WHERE l.id = :locationId"
-        params["locationId"] = int(locationId)
+
+    where_clause = "WHERE l.id = :locationId" if locationId is not None else ""
+    sql = base_sql.format(where_clause=where_clause)
 
     with Session(engine) as s:
-        rows = s.exec(text(sql.format(where=where)), params).mappings().all()
+        stmt = text(sql)
+        if locationId is not None:
+            stmt = stmt.bindparams(locationId=int(locationId))
+        rows = s.exec(stmt).mappings().all()
         return [dict(r) for r in rows]
+
 
 
 
