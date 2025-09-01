@@ -13,6 +13,12 @@ async function fetchJSON(path) {
   return r.json();
 }
 
+async function safeFetchJSON(path) {
+  try { return await fetchJSON(path); }
+  catch (e) { console.error('GET', path, e); return null; }
+}
+
+
 function naira(n){ const v = Number(n)||0; return v ? fmtCurrency.format(v) : ''; }
 function toNum(n){ return Number(n)||0; }
 
@@ -42,9 +48,14 @@ function renderRows(rows){
 }
 
 function renderAnalytics(summary){
-  const labels = (summary.totalsByLocation || []).map(x => x.location);
-  const qtys = (summary.totalsByLocation || []).map(x => toNum(x.total_qty));
+  const totals = summary.totalsByLocation || summary.totals || [];
+  const low    = summary.lowStock       || summary.low    || [];
+  const top    = summary.topItems       || summary.top    || [];
+
+  const labels = totals.map(x => x.location);
+  const qtys   = totals.map(x => toNum(x.total_qty));
   const ctxEl = $('#chart1');
+
   if (!ctxEl) return;
 
   if (chart) chart.destroy();
@@ -54,10 +65,11 @@ function renderAnalytics(summary){
     options: { responsive: true, maintainAspectRatio: false }
   });
 
-  $('#topItems').innerHTML = (summary.topItems || [])
-    .map(x => `<li>${x.sku} – ${x.name} • <strong>${naira(x.value)}</strong></li>`).join('');
-  $('#lowStock').innerHTML = (summary.lowStock || [])
-    .map(x => `<li class="${toNum(x.qty)<5?'bad':''}">${x.sku} – ${x.name} @ ${x.location} • ${fmtInt.format(toNum(x.qty))}</li>`).join('');
+  $('#topItems').innerHTML = top
+  .map(x => `<li>${x.sku} – ${x.name} • <strong>${naira(x.value)}</strong></li>`).join('');
+  $('#lowStock').innerHTML = low
+  .map(x => `<li class="${toNum(x.qty)<5?'bad':''}">${x.sku} – ${x.name} @ ${x.location} • ${fmtInt.format(toNum(x.qty))}</li>`).join('');
+
 
   // chips
   if (summary.locationsCount != null) $('#chipLocations').textContent = `${fmtInt.format(summary.locationsCount)} locations`;
@@ -79,27 +91,31 @@ async function loadFilters(){
 }
 
 async function refresh(){
-  try{
-    $('#refresh')?.setAttribute('aria-busy','true');
+  $('#refresh')?.setAttribute('aria-busy','true');
 
-    const val = $('#location').value;
-    const locId = val ? Number(val) : null;
-    const qs = locId ? `?location_id=${locId}` : ''; // <-- snake_case param
+  const val = $('#location').value;
+  const locId = val ? Number(val) : null;
+  const qs = locId ? `?locationId=${locId}` : '';
 
-    const [rows, summary] = await Promise.all([
-      fetchJSON(`/inventory${qs}`),
-      fetchJSON('/summary')
-    ]);
-
-    renderRows(rows);
-    renderAnalytics(summary);
-  }catch(err){
-    console.error(err);
-    alert('Failed to load data. Check API_BASE, CORS, and that your backend is up.');
-  }finally{
-    $('#refresh')?.removeAttribute('aria-busy');
+  // Try inventory; if it fails, fall back to /items so the table still shows.
+  let rows = await safeFetchJSON(`/inventory${qs}`);
+  if (!rows) {
+    const items = await safeFetchJSON('/items');
+    rows = (items || []).map(it => ({
+      sku: it.sku, item: it.name, category: '', location: '', qty: 0, cost_per_unit: 0, value: 0
+    }));
   }
+
+  // Try /summary; if it fails, use /reports/summary; if that fails, use empty data.
+  let summary = await safeFetchJSON('/summary')
+           || await safeFetchJSON('/reports/summary')
+           || { totalsByLocation: [], lowStock: [], topItems: [] };
+
+  renderRows(rows);
+  renderAnalytics(summary);
+  $('#refresh')?.removeAttribute('aria-busy');
 }
+
 
 $('#refresh').addEventListener('click', refresh);
 $('#location').addEventListener('change', refresh);
