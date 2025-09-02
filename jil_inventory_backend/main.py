@@ -149,7 +149,7 @@ def inventory(locationId: Optional[int] = None):
         if locationId is not None:
             stmt = stmt.bindparams(locationId=int(locationId))
         rows = s.exec(stmt).mappings().all()
-        return [dict(r) for r in rows]
+        return [dict(r) for r in rows] 
 
 
 
